@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>字里行间 - 第二关</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="stage" aria-label="字里行间第二关春江花月夜">
+      <section class="paper" id="paper">
+        <div class="paper-tint" id="paperTint"></div>
+        <canvas class="fx" id="fx" width="412" height="732" aria-hidden="true"></canvas>
+        <div class="meta" id="meta">
+          <div class="title">春江花月夜</div>
+          <div class="author">张若虚</div>
+        </div>
+        <button class="reset-button" id="resetButton" type="button" aria-label="重置">↻</button>
+        <div class="moon" id="moon" aria-hidden="true"></div>
+        <div class="moon-reflection" id="moonReflection" aria-hidden="true"></div>
+        <div class="hint" id="hint"></div>
+        <div class="poem" id="poem"></div>
+        <div class="sea-line" id="seaLine" aria-hidden="true"></div>
+        <div class="player" id="player" aria-hidden="true"><span></span></div>
+        <div class="next-transition" id="nextTransition" aria-hidden="true">
+          <p>潮下还有一页。</p>
+        </div>
+        <div class="touch-zones" aria-hidden="true">
+          <div></div>
+          <div></div>
+        </div>
+      </section>
+    </main>
+    <script src="./script.js"></script>
+  </body>
+</html>
