@@ -1,0 +1,8 @@
+# Claude Code 本地会话/配置
+.claude/
+
+# 其它本地工具缓存
+.omc/
+
+# Node
+node_modules/
