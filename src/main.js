@@ -25,8 +25,7 @@ class LevelOneGame {
     this.col = 0;
     this.jumpY = 0;
     this.sinkY = 0;
-    this.actorScaleX = 1;
-    this.actorScaleY = 1;
+    this.sinkProgress = 0;
     this.rollAngle = 0;
     this.holdLeft = false;
     this.holdRight = false;
@@ -112,8 +111,7 @@ class LevelOneGame {
     this.lastCell = 0;
     this.jumpY = 0;
     this.sinkY = 0;
-    this.actorScaleX = 1;
-    this.actorScaleY = 1;
+    this.sinkProgress = 0;
     this.rollAngle = 0;
     this.holdLeft = false;
     this.holdRight = false;
@@ -136,6 +134,7 @@ class LevelOneGame {
     this.handoff.setAttribute("aria-hidden", "true");
     this.setHint("");
     this.updateActor();
+    this.setActiveRow(0);
     if (this.qaScene) {
       this.showQaScene(this.qaScene);
     } else {
@@ -205,11 +204,12 @@ class LevelOneGame {
     });
     gsap.set(this.actor, { opacity: 1 });
 
-    if (scene === "postmoon") {
+    if (scene === "postmoon" || scene === "sink") {
       this.state = STATES.PLAYING_POST_MOON;
       this.row = 1;
       this.col = 6;
       this.moonCreated = true;
+      this.setActiveRow(1);
       this.poem.querySelectorAll('.char[data-row="0"]').forEach((char) => {
         gsap.set(char, { opacity: 0 });
       });
@@ -218,7 +218,22 @@ class LevelOneGame {
         gsap.set(char, { opacity: 1 });
       });
       gsap.set(this.moon, { opacity: 1, y: 0, scale: 1 });
+      if (scene === "sink") {
+        this.actorPose = "sinking";
+        this.sinkProgress = 0.62;
+        this.sinkY = 3;
+      }
       this.setHint("低下头，往下看……");
+      return;
+    }
+
+    if (scene === "jump") {
+      this.state = STATES.PLAYING;
+      this.row = 0;
+      this.col = 4;
+      this.jumpY = -54;
+      this.actorPose = "jump-apex";
+      this.setHint("");
       return;
     }
 
@@ -298,7 +313,7 @@ class LevelOneGame {
     }
 
     this.isJumping = true;
-    this.actorPose = "jump-squash";
+    this.actorPose = "jump-anticipation";
     const jump = { value: 0 };
     this.jumpTl = gsap
       .timeline({
@@ -310,7 +325,7 @@ class LevelOneGame {
         },
       })
       .call(() => {
-        this.actorPose = "airborne";
+        this.actorPose = "jump-rise";
       }, null, 0.06)
       .to(jump, {
         value: -69,
@@ -321,8 +336,11 @@ class LevelOneGame {
         },
       })
       .call(() => {
-        this.actorPose = "landing";
-      }, null, 0.38)
+        this.actorPose = "jump-apex";
+      }, null, 0.28)
+      .call(() => {
+        this.actorPose = "jump-fall";
+      }, null, 0.34)
       .to(jump, {
         value: 0,
         duration: 0.26,
@@ -330,7 +348,13 @@ class LevelOneGame {
         onUpdate: () => {
           this.jumpY = jump.value;
         },
-      });
+      })
+      .call(() => {
+        this.actorPose = "jump-land";
+      }, null, 0.5)
+      .call(() => {
+        this.actorPose = "jump-recover";
+      }, null, 0.56);
   }
 
   startSink() {
@@ -350,15 +374,15 @@ class LevelOneGame {
     }
 
     this.actorPose = "sinking";
+    this.sinkProgress = 0;
     const sink = { value: 0 };
     this.sinkTween = gsap.to(sink, {
       value: 1,
       duration: 1,
       ease: "power2.in",
       onUpdate: () => {
-        this.sinkY = sink.value * 11;
-        this.actorScaleX = 1 - sink.value * 0.34;
-        this.actorScaleY = 1 + sink.value * 0.08;
+        this.sinkProgress = sink.value;
+        this.sinkY = sink.value * 5;
       },
     });
 
@@ -380,8 +404,7 @@ class LevelOneGame {
     this.actorPose = "auto";
     gsap.to(this, {
       sinkY: 0,
-      actorScaleX: 1,
-      actorScaleY: 1,
+      sinkProgress: 0,
       duration: 0.2,
       ease: "power2.out",
     });
@@ -559,6 +582,7 @@ class LevelOneGame {
         this.row = 1;
         this.col = 0;
         this.lastCell = 0;
+        this.setActiveRow(1);
         this.state = STATES.PLAYING_POST_MOON;
       },
     });
@@ -614,6 +638,10 @@ class LevelOneGame {
     if (this.state === STATES.WRAPPING) return;
     const previousState = this.state;
     this.state = STATES.WRAPPING;
+    this.row = targetRow;
+    this.col = targetCol;
+    this.lastCell = targetCol;
+    this.setActiveRow(targetRow);
     const firstLine = this.poem.querySelector('.poem-line[data-row="0"]');
     const secondLine = this.poem.querySelector('.poem-line[data-row="1"]');
     const outgoingLine = direction > 0 ? firstLine : secondLine;
@@ -627,9 +655,6 @@ class LevelOneGame {
     gsap
       .timeline({
         onComplete: () => {
-          this.row = targetRow;
-          this.col = targetCol;
-          this.lastCell = targetCol;
           this.state = previousState === STATES.PLAYING_POST_MOON
             ? STATES.PLAYING_POST_MOON
             : STATES.PLAYING;
@@ -681,7 +706,7 @@ class LevelOneGame {
     this.actorPose = "submerging";
     this.setHint("");
 
-    const lowChar = this.getChar(1, 6);
+    const sinkChars = [this.getChar(1, 6), this.getChar(1, 7)].filter(Boolean);
     gsap
       .timeline({
         onComplete: () => {
@@ -703,13 +728,12 @@ class LevelOneGame {
         },
       })
       .to(this, {
-        sinkY: 23,
-        actorScaleX: 0.26,
-        actorScaleY: 1.22,
+        sinkY: 14,
+        sinkProgress: 1,
         duration: 0.3,
         ease: "power1.in",
       }, 0)
-      .to(lowChar, { skewY: 8, y: 6, duration: 0.3, ease: "power1.in" }, 0)
+      .to(sinkChars, { skewY: 8, y: 6, duration: 0.3, ease: "power1.in" }, 0)
       .to(this.moon, { y: 130, duration: 0.5, ease: "power1.in" }, 0.3)
       .to(this.pageWash, { y: 0, opacity: 1, duration: 0.5, ease: "power2.in" }, 0.3)
       .to([this.actor, this.trail], { opacity: 0, duration: 0.25 }, 0.6)
@@ -720,7 +744,7 @@ class LevelOneGame {
     const x = this.actorX();
     const y = this.actorY();
     const direction = Number(this.holdRight) - Number(this.holdLeft);
-    this.actor.style.transform = `translate3d(${x - STAGE.actorSize / 2}px, ${y - STAGE.actorSize}px, 0) scale(${this.actorScaleX}, ${this.actorScaleY})`;
+    this.actor.style.transform = `translate3d(${x - STAGE.actorSize / 2}px, ${y - STAGE.actorSize}px, 0)`;
 
     const trailX = direction < 0 ? x + 5 : x - 22;
     this.trail.style.transform = `translate3d(${trailX}px, ${y - 11}px, 0) scaleX(${direction < 0 ? -1 : 1})`;
@@ -738,22 +762,40 @@ class LevelOneGame {
     }
 
     let frame;
+    let sheet;
     if (this.state === STATES.FROZEN) {
+      sheet = "move";
       frame = 7;
-    } else if (this.actorPose === "jump-squash") {
-      frame = 4;
-    } else if (this.actorPose === "airborne") {
-      frame = 5;
-    } else if (this.actorPose === "landing") {
-      frame = 6;
     } else if (this.actorPose === "sinking" || this.actorPose === "submerging") {
-      frame = Math.floor(time / 360) % 2;
+      sheet = "sink";
+      frame = Math.min(3, Math.floor(this.sinkProgress * 4));
+    } else if (this.actorPose === "jump-anticipation") {
+      sheet = "motion";
+      frame = 2;
+    } else if (this.actorPose === "jump-rise") {
+      sheet = "motion";
+      frame = 3;
+    } else if (this.actorPose === "jump-apex") {
+      sheet = "motion";
+      frame = 4;
+    } else if (this.actorPose === "jump-fall") {
+      sheet = "motion";
+      frame = 5;
+    } else if (this.actorPose === "jump-land") {
+      sheet = "motion";
+      frame = 6;
+    } else if (this.actorPose === "jump-recover") {
+      sheet = "motion";
+      frame = 7;
     } else if (direction !== 0) {
+      sheet = "move";
       frame = 2 + (Math.floor(time / 140) % 2);
     } else {
+      sheet = "motion";
       frame = Math.floor(time / 720) % 2;
     }
 
+    this.actor.dataset.sheet = sheet;
     this.actor.dataset.frame = String(frame);
     this.actor.dataset.pose = this.actorPose;
   }
@@ -765,10 +807,22 @@ class LevelOneGame {
   actorY() {
     return (
       STAGE.gridTop +
-      this.row * STAGE.lineHeight +
+      this.visualRowTop(this.row) +
       this.jumpY +
       this.sinkY
     );
+  }
+
+  visualRowTop(row) {
+    let y = 0;
+    for (let r = 1; r <= row; r += 1) {
+      y += r === this.row ? STAGE.lineHeight : STAGE.lineHeightTight;
+    }
+    return y;
+  }
+
+  setActiveRow(row) {
+    this.poem.dataset.activeRow = String(row);
   }
 
   spawnInkFragments(chars) {

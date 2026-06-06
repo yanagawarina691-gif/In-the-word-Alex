@@ -93,8 +93,8 @@ try {
   );
   assert(actorLayout.borderRadius === "50%", "Expected actor to render as a ball.");
   assert(
-    actorLayout.spriteImage.includes("ink-spirit-sheet-v1.png"),
-    "Expected actor to render from the ink spirit sprite sheet.",
+    actorLayout.spriteImage.includes("ink-spirit-idle-jump-v2.png"),
+    "Expected idle actor to render from the idle and jump sprite sheet.",
   );
 
   await key("ArrowRight", "ArrowRight", 39, "keyDown");
@@ -164,16 +164,13 @@ try {
     const actor = document.querySelector('#actor');
     return {
       pose: actor.dataset.pose,
-      frame: actor.dataset.frame,
-      transform: actor.style.transform
+      sheet: actor.dataset.sheet,
+      frame: actor.dataset.frame
     };
   })()`);
   assert(sinkVisual.pose === "sinking", `Expected sinking pose, received ${sinkVisual.pose}.`);
-  assert(sinkVisual.frame !== "6", "Sinking must not reuse the landing squash frame.");
-  assert(
-    sinkVisual.transform.includes("scale("),
-    "Expected sinking to progressively reshape the ink spirit.",
-  );
+  assert(sinkVisual.sheet === "sink", `Expected sink sheet, received ${sinkVisual.sheet}.`);
+  assert(["0", "1", "2", "3"].includes(sinkVisual.frame), "Expected a dedicated sink frame.");
   await waitForExpression("window.__levelOne?.state === 'HANDOFF'", 5000);
   await waitForExpression(
     "Number.parseFloat(getComputedStyle(document.querySelector('#handoff')).opacity) > 0.9",

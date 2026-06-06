@@ -99,9 +99,9 @@ button {
 
 .page-header {
   position: absolute;
-  top: 35px;
-  left: 74px;
-  right: 74px;
+  top: 22px;
+  left: 28px;
+  right: 28px;
   height: 40px;
 }
 
@@ -160,7 +160,7 @@ button {
   top: 238px;
   left: 74px;
   width: 264px;
-  height: 92px;
+  height: 142px;
 }
 
 .poem-line {
@@ -172,6 +172,7 @@ button {
   height: 46px;
   white-space: nowrap;
   transform-origin: center;
+  transition: top 200ms ease-out;
 }
 
 .poem-line[data-row="0"] {
@@ -179,7 +180,11 @@ button {
 }
 
 .poem-line[data-row="1"] {
-  top: 46px;
+  top: 50px;
+}
+
+.poem[data-active-row="1"] .poem-line[data-row="1"] {
+  top: 92px;
 }
 
 .char {
@@ -285,30 +290,14 @@ button {
   transform-origin: center bottom;
 }
 
-.actor::after {
-  position: absolute;
-  bottom: -3px;
-  left: 50%;
-  width: 28px;
-  height: 7px;
-  border: 1px solid rgb(32 32 30 / 0%);
-  border-radius: 50%;
-  content: "";
-  opacity: 0;
-  transform: translateX(-50%) scale(1.15);
-  pointer-events: none;
-}
-
 .actor-sprite {
   position: absolute;
   bottom: -1px;
   left: 50%;
   width: 44px;
   height: 44px;
-  background-image: url("/assets/ink-spirit/spritesheets/ink-spirit-sheet-v1.png");
   background-repeat: no-repeat;
   background-position: 0 0;
-  background-size: 400% 200%;
   filter: contrast(1.04) saturate(0.72);
   transform: translateX(-50%);
   transform-origin: center bottom;
@@ -316,19 +305,23 @@ button {
   will-change: background-position, transform;
 }
 
-.actor[data-pose="sinking"] .actor-sprite,
-.actor[data-pose="submerging"] .actor-sprite {
-  filter: contrast(1.12) saturate(0.48);
+.actor[data-sheet="move"] .actor-sprite {
+  background-image: url("/assets/ink-spirit/spritesheets/ink-spirit-sheet-v1.png");
+  background-size: 400% 200%;
 }
 
-.actor[data-pose="sinking"]::after {
-  animation: ink-sink-ring 1s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+.actor[data-sheet="motion"] .actor-sprite {
+  background-image: url("/assets/ink-spirit/spritesheets/ink-spirit-idle-jump-v2.png");
+  background-size: 400% 200%;
 }
 
-.actor[data-pose="submerging"]::after {
-  border-color: rgb(32 32 30 / 24%);
-  opacity: 0.32;
-  transform: translateX(-50%) scale(0.48);
+.actor[data-sheet="sink"] .actor-sprite {
+  bottom: -7px;
+  width: 56px;
+  height: 56px;
+  background-image: url("/assets/ink-spirit/spritesheets/ink-spirit-sink-v2.png");
+  background-size: 400% 100%;
+  filter: contrast(1.08) saturate(0.58);
 }
 
 .actor[data-direction="right"] .actor-sprite {
@@ -513,23 +506,6 @@ button {
   }
   70% {
     transform: translateX(2px);
-  }
-}
-
-@keyframes ink-sink-ring {
-  0% {
-    border-color: rgb(32 32 30 / 0%);
-    opacity: 0;
-    transform: translateX(-50%) scale(1.2);
-  }
-  22% {
-    border-color: rgb(32 32 30 / 22%);
-    opacity: 0.34;
-  }
-  100% {
-    border-color: rgb(32 32 30 / 30%);
-    opacity: 0.16;
-    transform: translateX(-50%) scale(0.42);
   }
 }
 
