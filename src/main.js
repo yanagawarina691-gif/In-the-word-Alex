@@ -25,9 +25,13 @@ class LevelOneGame {
     this.col = 0;
     this.jumpY = 0;
     this.sinkY = 0;
+    this.actorScaleX = 1;
+    this.actorScaleY = 1;
+    this.rollAngle = 0;
     this.holdLeft = false;
     this.holdRight = false;
     this.isJumping = false;
+    this.actorPose = "auto";
     this.moonCreated = false;
     this.triggerCooldown = new Map();
     this.timers = new Set();
@@ -36,6 +40,7 @@ class LevelOneGame {
     this.lastCell = 0;
     this.wallFeedbackReady = true;
     this.sinkTimer = null;
+    this.jumpTl = null;
 
     this.renderPoem();
     this.configureCanvas();
@@ -107,14 +112,20 @@ class LevelOneGame {
     this.lastCell = 0;
     this.jumpY = 0;
     this.sinkY = 0;
+    this.actorScaleX = 1;
+    this.actorScaleY = 1;
+    this.rollAngle = 0;
     this.holdLeft = false;
     this.holdRight = false;
     this.isJumping = false;
+    this.actorPose = "auto";
     this.moonCreated = false;
     this.triggerCooldown.clear();
+    this.jumpTl = null;
 
     this.stage.className = "game-stage";
     this.actor.style.opacity = "0";
+    this.actor.style.scale = "";
     this.trail.style.opacity = "0";
     this.light.style.opacity = "0";
     this.moon.style.opacity = "0";
@@ -181,7 +192,7 @@ class LevelOneGame {
       .call(() => {
         this.jumpY = 0;
         this.state = STATES.IDLE;
-        this.setHint("按住左右两侧，开始走", "opening");
+        this.setHint("按住左右两侧，开始走");
       });
   }
 
@@ -206,7 +217,7 @@ class LevelOneGame {
         char.classList.remove("is-locked");
         gsap.set(char, { opacity: 1 });
       });
-      gsap.set(this.moon, { opacity: 1, y: -8, scale: 1 });
+      gsap.set(this.moon, { opacity: 1, y: 0, scale: 1 });
       this.setHint("低下头，往下看……");
       return;
     }
@@ -222,14 +233,13 @@ class LevelOneGame {
         y: 0,
         scale: 1,
         opacity: 1,
-        backgroundColor: "#e8d9a8",
       });
       gsap.set(this.handoff, { opacity: 1 });
       return;
     }
 
     this.state = STATES.IDLE;
-    this.setHint("按住左右两侧，开始走", "opening");
+    this.setHint("按住左右两侧，开始走");
   }
 
   handleIntent(intent) {
@@ -275,7 +285,7 @@ class LevelOneGame {
   }
 
   jump() {
-    if (this.state === STATES.BULLET_TIME) {
+    if (this.state === STATES.BULLET_TIME && !this.moonCreated) {
       this.breakMoon();
       return;
     }
@@ -288,14 +298,20 @@ class LevelOneGame {
     }
 
     this.isJumping = true;
+    this.actorPose = "jump-squash";
     const jump = { value: 0 };
-    gsap
+    this.jumpTl = gsap
       .timeline({
         onComplete: () => {
           this.isJumping = false;
           this.jumpY = 0;
+          this.actorPose = "auto";
+          this.jumpTl = null;
         },
       })
+      .call(() => {
+        this.actorPose = "airborne";
+      }, null, 0.06)
       .to(jump, {
         value: -69,
         duration: 0.22,
@@ -304,6 +320,9 @@ class LevelOneGame {
           this.jumpY = jump.value;
         },
       })
+      .call(() => {
+        this.actorPose = "landing";
+      }, null, 0.38)
       .to(jump, {
         value: 0,
         duration: 0.26,
@@ -315,10 +334,14 @@ class LevelOneGame {
   }
 
   startSink() {
+    const sinkableState =
+      this.state === STATES.PLAYING_POST_MOON ||
+      (this.state === STATES.BULLET_TIME && this.moonCreated);
+    const sinkRange = this.state === STATES.BULLET_TIME ? 1.5 : 0.5;
     if (
-      this.state !== STATES.PLAYING_POST_MOON ||
+      !sinkableState ||
       this.row !== LEVEL_ONE.triggers.sink.row ||
-      Math.abs(this.col - LEVEL_ONE.triggers.sink.col) > 0.5 ||
+      Math.abs(this.col - LEVEL_ONE.triggers.sink.col) > sinkRange ||
       this.holdLeft ||
       this.holdRight ||
       this.sinkTimer
@@ -326,13 +349,16 @@ class LevelOneGame {
       return;
     }
 
+    this.actorPose = "sinking";
     const sink = { value: 0 };
     this.sinkTween = gsap.to(sink, {
-      value: 9,
+      value: 1,
       duration: 1,
-      ease: "power1.in",
+      ease: "power2.in",
       onUpdate: () => {
-        this.sinkY = sink.value;
+        this.sinkY = sink.value * 11;
+        this.actorScaleX = 1 - sink.value * 0.34;
+        this.actorScaleY = 1 + sink.value * 0.08;
       },
     });
 
@@ -351,7 +377,14 @@ class LevelOneGame {
     }
     this.sinkTween?.kill();
     this.sinkTween = null;
-    gsap.to(this, { sinkY: 0, duration: 0.16, ease: "power2.out" });
+    this.actorPose = "auto";
+    gsap.to(this, {
+      sinkY: 0,
+      actorScaleX: 1,
+      actorScaleY: 1,
+      duration: 0.2,
+      ease: "power2.out",
+    });
   }
 
   tick(time) {
@@ -359,6 +392,7 @@ class LevelOneGame {
     this.lastFrame = time;
     this.updateMovement(dt);
     this.updateActor();
+    this.updateActorVisual(time);
     this.updateEffects(dt);
     requestAnimationFrame((nextTime) => this.tick(nextTime));
   }
@@ -377,7 +411,7 @@ class LevelOneGame {
       return;
     }
 
-    const timeScale = this.state === STATES.BULLET_TIME ? 0.3 : 1;
+    const timeScale = this.state === STATES.BULLET_TIME ? STAGE.bulletTimeScale : 1;
     const previousCol = this.col;
     this.col += direction * STAGE.speed * timeScale * dt;
 
@@ -386,18 +420,23 @@ class LevelOneGame {
       this.showWallFeedback();
     }
 
-    if (this.row === 0 && this.col > 11.72) {
+    const rowLastCol = LEVEL_ONE.lines[this.row].length - 1;
+    if (this.row === 0 && this.col > rowLastCol + 0.5) {
       this.startWrap(1, 0, 1);
       return;
     }
 
-    if (this.row === 1 && this.col < -0.72) {
-      this.startWrap(0, 11, -1);
+    if (this.row === 1 && this.col < -0.5) {
+      this.startWrap(0, LEVEL_ONE.lines[0].length - 1, -1);
       return;
     }
 
     if (this.row === 0) this.col = Math.max(0, this.col);
-    if (this.row === 1) this.col = Math.min(11, this.col);
+    if (this.row === 1) this.col = Math.min(rowLastCol, this.col);
+
+    const distance = (this.col - previousCol) * STAGE.cellWidth;
+    const radius = STAGE.actorSize / 2;
+    this.rollAngle += (distance / radius) * (180 / Math.PI);
 
     this.checkCellCrossing(previousCol, this.col);
     this.trail.style.opacity = "1";
@@ -411,12 +450,31 @@ class LevelOneGame {
 
     const step = currentCell > previousCell ? 1 : -1;
     for (let col = previousCell + step; step > 0 ? col <= currentCell : col >= currentCell; col += step) {
-      if (col >= 0 && col <= 11) this.triggerCell(this.row, col);
+      if (col >= 0 && col < LEVEL_ONE.lines[this.row].length) {
+        this.triggerCell(this.row, col);
+      }
     }
     this.lastCell = currentCell;
   }
 
   triggerCell(row, col) {
+    const isBulletTimeTrigger =
+      row === 1 &&
+      (LEVEL_ONE.triggers.bulletTime.cols.includes(col) ||
+        LEVEL_ONE.triggers.bulletTimeSink.cols.includes(col));
+
+    if (isBulletTimeTrigger) {
+      const isMoonTrigger = LEVEL_ONE.triggers.bulletTime.cols.includes(col);
+      if (isMoonTrigger && this.state === STATES.PLAYING) {
+        this.triggerBulletTime(STATES.PLAYING, "试着……抬头看看？");
+        return;
+      }
+      if (!isMoonTrigger && this.state === STATES.PLAYING_POST_MOON) {
+        this.triggerBulletTime(STATES.PLAYING_POST_MOON, "低下头，往下看……");
+        return;
+      }
+    }
+
     const key = `${row}:${col}`;
     const now = performance.now();
     if (now - (this.triggerCooldown.get(key) || 0) < 800) return;
@@ -424,16 +482,6 @@ class LevelOneGame {
 
     if (row === 0 && col === 4) this.triggerLight();
     if (row === 0 && col === 10) this.triggerFrost();
-    if (row === 1 && col === 0 && this.state === STATES.PLAYING) this.triggerBulletTime();
-
-    if (row === 1 && col === 6 && this.state === STATES.PLAYING_POST_MOON) {
-      this.setHint("低下头，往下看……");
-    } else if (
-      this.state === STATES.PLAYING_POST_MOON &&
-      this.hint.textContent.includes("低下头")
-    ) {
-      this.setHint("");
-    }
 
     const char = this.getChar(row, col);
     if (char) {
@@ -479,22 +527,25 @@ class LevelOneGame {
     }, 800);
   }
 
-  triggerBulletTime() {
+  triggerBulletTime(previousState, hint) {
     this.state = STATES.BULLET_TIME;
     this.stage.classList.add("is-bullet-time", "is-cool");
     this.setTimer(() => {
-      if (this.state !== STATES.BULLET_TIME) return;
-      this.state = STATES.PLAYING;
       this.stage.classList.remove("is-bullet-time", "is-cool");
+      if (this.state !== STATES.BULLET_TIME) return;
+      this.state = previousState;
       this.setHint("");
     }, 2000);
     this.setTimer(() => {
-      if (this.state === STATES.BULLET_TIME) this.setHint("试着……抬头看看？");
+      if (this.state === STATES.BULLET_TIME) this.setHint(hint);
     }, 200);
   }
 
   breakMoon() {
     if (this.state !== STATES.BULLET_TIME) return;
+    this.jumpTl?.kill();
+    this.jumpTl = null;
+    this.isJumping = false;
     this.state = STATES.MOON_BREAK;
     this.holdLeft = false;
     this.holdRight = false;
@@ -539,7 +590,7 @@ class LevelOneGame {
         this.moonCreated = true;
         gsap.to(this.moon, {
           opacity: 1,
-          y: -8,
+          y: 0,
           scale: 1,
           duration: 0.3,
           ease: "power3.out",
@@ -565,6 +616,13 @@ class LevelOneGame {
     this.state = STATES.WRAPPING;
     const firstLine = this.poem.querySelector('.poem-line[data-row="0"]');
     const secondLine = this.poem.querySelector('.poem-line[data-row="1"]');
+    const outgoingLine = direction > 0 ? firstLine : secondLine;
+    const incomingLine = direction > 0 ? secondLine : firstLine;
+
+    gsap.set(incomingLine, {
+      y: direction > 0 ? 14 : -14,
+      opacity: 0,
+    });
 
     gsap
       .timeline({
@@ -580,8 +638,19 @@ class LevelOneGame {
         },
       })
       .to(this.actor, { opacity: 0, duration: 0.12, ease: "power1.in" }, 0)
-      .to(firstLine, { x: -18 * direction, opacity: 0.62, duration: 0.2 }, 0)
-      .to(secondLine, { y: -8 * direction, duration: 0.2 }, 0)
+      .to(outgoingLine, {
+        x: -18 * direction,
+        y: -8 * direction,
+        opacity: 0,
+        duration: 0.2,
+        ease: "power1.in",
+      }, 0)
+      .to(incomingLine, {
+        y: 0,
+        opacity: 1,
+        duration: 0.2,
+        ease: "power1.out",
+      }, 0)
       .set(this.actor, { opacity: 1 }, 0.2);
   }
 
@@ -600,10 +669,16 @@ class LevelOneGame {
   }
 
   transitionToLevelTwo() {
-    if (this.state !== STATES.PLAYING_POST_MOON) return;
+    const canTransition =
+      this.state === STATES.PLAYING_POST_MOON ||
+      (this.state === STATES.BULLET_TIME && this.moonCreated);
+    if (!canTransition) return;
+
     this.state = STATES.TRANSITION_TO_LEVEL_2;
+    this.stage.classList.remove("is-bullet-time", "is-cool");
     this.holdLeft = false;
     this.holdRight = false;
+    this.actorPose = "submerging";
     this.setHint("");
 
     const lowChar = this.getChar(1, 6);
@@ -616,7 +691,6 @@ class LevelOneGame {
           gsap.set(this.moon, { left: 308, top: 108, y: 0, scale: 1 });
           gsap.to(this.moon, {
             opacity: 1,
-            backgroundColor: "#e8d9a8",
             duration: 0.6,
             ease: "power2.out",
           });
@@ -630,6 +704,8 @@ class LevelOneGame {
       })
       .to(this, {
         sinkY: 23,
+        actorScaleX: 0.26,
+        actorScaleY: 1.22,
         duration: 0.3,
         ease: "power1.in",
       }, 0)
@@ -644,7 +720,7 @@ class LevelOneGame {
     const x = this.actorX();
     const y = this.actorY();
     const direction = Number(this.holdRight) - Number(this.holdLeft);
-    this.actor.style.transform = `translate3d(${x - STAGE.actorSize / 2}px, ${y - STAGE.actorSize}px, 0)`;
+    this.actor.style.transform = `translate3d(${x - STAGE.actorSize / 2}px, ${y - STAGE.actorSize}px, 0) scale(${this.actorScaleX}, ${this.actorScaleY})`;
 
     const trailX = direction < 0 ? x + 5 : x - 22;
     this.trail.style.transform = `translate3d(${trailX}px, ${y - 11}px, 0) scaleX(${direction < 0 ? -1 : 1})`;
@@ -655,6 +731,33 @@ class LevelOneGame {
     }
   }
 
+  updateActorVisual(time) {
+    const direction = Number(this.holdRight) - Number(this.holdLeft);
+    if (direction !== 0) {
+      this.actor.dataset.direction = direction < 0 ? "left" : "right";
+    }
+
+    let frame;
+    if (this.state === STATES.FROZEN) {
+      frame = 7;
+    } else if (this.actorPose === "jump-squash") {
+      frame = 4;
+    } else if (this.actorPose === "airborne") {
+      frame = 5;
+    } else if (this.actorPose === "landing") {
+      frame = 6;
+    } else if (this.actorPose === "sinking" || this.actorPose === "submerging") {
+      frame = Math.floor(time / 360) % 2;
+    } else if (direction !== 0) {
+      frame = 2 + (Math.floor(time / 140) % 2);
+    } else {
+      frame = Math.floor(time / 720) % 2;
+    }
+
+    this.actor.dataset.frame = String(frame);
+    this.actor.dataset.pose = this.actorPose;
+  }
+
   actorX() {
     return STAGE.gridLeft + this.col * STAGE.cellWidth + STAGE.cellWidth / 2;
   }
@@ -663,7 +766,6 @@ class LevelOneGame {
     return (
       STAGE.gridTop +
       this.row * STAGE.lineHeight +
-      30 +
       this.jumpY +
       this.sinkY
     );
@@ -766,10 +868,9 @@ class LevelOneGame {
     return this.poem.querySelector(`.char[data-row="${row}"][data-col="${col}"]`);
   }
 
-  setHint(text, variant = "") {
+  setHint(text) {
     this.hint.textContent = text;
     this.hint.classList.toggle("is-visible", Boolean(text));
-    this.hint.classList.toggle("is-opening", variant === "opening");
   }
 
   setTimer(callback, delay) {

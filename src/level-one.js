@@ -5,18 +5,20 @@ export const STAGE = {
   gridTop: 238,
   cellWidth: 22,
   lineHeight: 46,
-  actorSize: 15,
+  actorSize: 22,
   speed: 6,
+  bulletTimeScale: 0.16,
 };
 
 export const LEVEL_ONE = {
   title: "静夜思",
   author: "李白",
-  lines: ["床前明月光，疑是地上霜。", "举头望明月，低头思故乡。"],
+  lines: ["床前明月光，疑是地上霜", "举头望明月，低头思故乡"],
   triggers: {
     light: { row: 0, col: 4, cooldown: 800 },
     frost: { row: 0, col: 10, cooldown: 800 },
-    bulletTime: { row: 1, col: 0, cooldown: 800 },
+    bulletTime: { row: 1, cols: [0, 1] },
+    bulletTimeSink: { row: 1, cols: [6, 7] },
     sink: { row: 1, col: 6, cooldown: 800 },
   },
   softWall: { row: 1, col: 5 },

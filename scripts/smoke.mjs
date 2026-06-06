@@ -57,15 +57,100 @@ try {
   const visibleChars = await evaluate(
     "[...document.querySelectorAll('.char')].filter((char) => Number.parseFloat(getComputedStyle(char).opacity) > 0).length",
   );
-  assert(visibleChars === 24, `Expected 24 visible characters, received ${visibleChars}.`);
+  assert(visibleChars === 22, `Expected 22 visible characters, received ${visibleChars}.`);
+
+  const pageCopy = await evaluate(`({
+    meta: document.querySelector('.poem-meta').textContent.replace(/\\s+/g, ''),
+    poem: document.querySelector('#poem').textContent,
+    hint: document.querySelector('#hint').textContent,
+    hintTop: document.querySelector('#hint').getBoundingClientRect().top,
+    poemTop: document.querySelector('#poem').getBoundingClientRect().top
+  })`);
+  assert(pageCopy.meta === "《静夜思》——李白", `Unexpected poem metadata: ${pageCopy.meta}`);
+  assert(!pageCopy.poem.includes("。"), "Poem should not render full stops.");
+  assert(pageCopy.hint === "按住左右两侧，开始走", `Unexpected opening hint: ${pageCopy.hint}`);
+  assert(pageCopy.hintTop < pageCopy.poemTop, "Opening hint should be above the poem.");
+  const hintAlignment = await evaluate(`(() => {
+    const hint = document.querySelector('#hint').getBoundingClientRect();
+    const stage = document.querySelector('#game').getBoundingClientRect();
+    return Math.abs((hint.left + hint.width / 2) - (stage.left + stage.width / 2));
+  })()`);
+  assert(hintAlignment < 1, `Expected centered hint, received ${hintAlignment}px offset.`);
+
+  const actorLayout = await evaluate(`(() => {
+    const actor = document.querySelector('#actor').getBoundingClientRect();
+    const firstChar = document.querySelector('.char').getBoundingClientRect();
+    return {
+      actorBottom: actor.bottom,
+      textTop: firstChar.top,
+      borderRadius: getComputedStyle(document.querySelector('#actor')).borderRadius,
+      spriteImage: getComputedStyle(document.querySelector('.actor-sprite')).backgroundImage
+    };
+  })()`);
+  assert(
+    actorLayout.actorBottom <= actorLayout.textTop + 1,
+    `Expected actor above text, received actor bottom ${actorLayout.actorBottom} and text top ${actorLayout.textTop}.`,
+  );
+  assert(actorLayout.borderRadius === "50%", "Expected actor to render as a ball.");
+  assert(
+    actorLayout.spriteImage.includes("ink-spirit-sheet-v1.png"),
+    "Expected actor to render from the ink spirit sprite sheet.",
+  );
 
   await key("ArrowRight", "ArrowRight", 39, "keyDown");
+  await waitForExpression("window.__levelOne?.state === 'WRAPPING'", 6000);
+  await sleep(80);
+  const wrapFrame = await evaluate(`(() => {
+    const lines = [...document.querySelectorAll('.poem-line')];
+    return {
+      col: window.__levelOne.col,
+      firstOpacity: Number.parseFloat(getComputedStyle(lines[0]).opacity),
+      secondOpacity: Number.parseFloat(getComputedStyle(lines[1]).opacity)
+    };
+  })()`);
+  assert(wrapFrame.col < 10.7, `Expected wrap at the text edge, received column ${wrapFrame.col}.`);
+  assert(
+    wrapFrame.firstOpacity > 0 && wrapFrame.firstOpacity < 1,
+    `Expected outgoing line mid-fade, received opacity ${wrapFrame.firstOpacity}.`,
+  );
+  assert(
+    wrapFrame.secondOpacity > 0 && wrapFrame.secondOpacity < 1,
+    `Expected incoming line mid-fade, received opacity ${wrapFrame.secondOpacity}.`,
+  );
   await waitForExpression("window.__levelOne?.state === 'BULLET_TIME'", 6000);
+  await sleep(500);
+  const bulletEntryCol = await evaluate("window.__levelOne.col");
+  assert(
+    bulletEntryCol < 0.8,
+    `Expected slow movement after wrapping near line start, received column ${bulletEntryCol}.`,
+  );
+  const rollAngle = await evaluate("window.__levelOne?.rollAngle");
+  assert(Math.abs(rollAngle) > 90, `Expected actor to roll while moving, received ${rollAngle} degrees.`);
+  await key("ArrowRight", "ArrowRight", 39, "keyUp");
+  await waitForExpression("window.__levelOne?.state === 'PLAYING'", 3000);
+  await evaluate(`
+    window.__levelOne.col = 2;
+    window.__levelOne.triggerCell(1, 1);
+  `);
+  await waitForExpression("window.__levelOne?.state === 'BULLET_TIME'", 1000);
   await key(" ", "Space", 32, "keyDown");
   await key(" ", "Space", 32, "keyUp");
-  await key("ArrowRight", "ArrowRight", 39, "keyUp");
 
   await waitForExpression("window.__levelOne?.state === 'PLAYING_POST_MOON'", 4000);
+  const moonVisual = await evaluate(`(() => {
+    const moon = document.querySelector('#moon');
+    return {
+      left: moon.offsetLeft,
+      top: moon.offsetTop,
+      backgroundImage: getComputedStyle(moon).backgroundImage
+    };
+  })()`);
+  assert(moonVisual.left === 308, `Expected moon at x=308, received ${moonVisual.left}.`);
+  assert(moonVisual.top === 108, `Expected moon at y=108, received ${moonVisual.top}.`);
+  assert(
+    moonVisual.backgroundImage.includes("radial-gradient"),
+    "Expected the moon to use a lit radial surface.",
+  );
   await key("ArrowRight", "ArrowRight", 39, "keyDown");
   await waitForExpression(
     "window.__levelOne?.row === 1 && Math.abs(window.__levelOne?.col - 6) < 0.4",
@@ -73,6 +158,22 @@ try {
   );
   await key("ArrowRight", "ArrowRight", 39, "keyUp");
   await key("ArrowDown", "ArrowDown", 40, "keyDown");
+  await waitForExpression("Boolean(window.__levelOne?.sinkTimer)", 1000);
+  await sleep(250);
+  const sinkVisual = await evaluate(`(() => {
+    const actor = document.querySelector('#actor');
+    return {
+      pose: actor.dataset.pose,
+      frame: actor.dataset.frame,
+      transform: actor.style.transform
+    };
+  })()`);
+  assert(sinkVisual.pose === "sinking", `Expected sinking pose, received ${sinkVisual.pose}.`);
+  assert(sinkVisual.frame !== "6", "Sinking must not reuse the landing squash frame.");
+  assert(
+    sinkVisual.transform.includes("scale("),
+    "Expected sinking to progressively reshape the ink spirit.",
+  );
   await waitForExpression("window.__levelOne?.state === 'HANDOFF'", 5000);
   await waitForExpression(
     "Number.parseFloat(getComputedStyle(document.querySelector('#handoff')).opacity) > 0.9",
