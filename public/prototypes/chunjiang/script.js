@@ -1,3 +1,5 @@
+import { createRoundTasks } from "./round-tasks.js";
+
 const CONFIG = {
   char: 22,
   line: 46,
@@ -6,6 +8,15 @@ const CONFIG = {
   playerSize: 16,
   walkCharsPerSecond: 6,
   seaWalkCharsPerSecond: 7.2,
+  triggers: {
+    seaPreview: { row: 0, cols: [5] },
+    moonEcho: { row: 0, cols: [10, 11] },
+    tideAwake: { row: 0, cols: [13, 14] },
+    wavePush: { row: 1, cols: [2, 3] },
+    wideBoost: { row: 1, cols: [4, 5, 6] },
+    moonBright: { row: 1, cols: [13, 14] },
+    seaFinale: { row: 0, cols: [8] },
+  },
   rows: [
     "春江潮水连海平，海上明月共潮生。",
     "滟滟随波千万里，何处春江无月明。"
@@ -29,6 +40,8 @@ const els = {
 
 const ctx = els.fx.getContext("2d");
 
+const roundTasks = createRoundTasks();
+let touchStart = null;
 let state;
 let keys;
 let lastTime = 0;
@@ -45,7 +58,6 @@ function freshState() {
     yLift: 0,
     jumpVelocity: 0,
     isJumping: false,
-    touched: new Set(),
     flags: {
       seaPreview: false,
       moonEcho: false,
@@ -57,7 +69,6 @@ function freshState() {
       ended: false
     },
     seaGlyphs: [],
-    clearedGaps: new Set(),
     seaProgress: 0,
     steps: 0,
     startedAt: performance.now(),
@@ -77,6 +88,10 @@ function boot() {
 
 function reset() {
   cancelAnimationFrame(rafId);
+  roundTasks.clear();
+  keys = { left: false, right: false };
+  touchStart = null;
+  els.poem.querySelectorAll(".hit").forEach(char => char.classList.remove("hit"));
   clearGeneratedSea();
   state = freshState();
   lastTime = performance.now();
@@ -141,7 +156,6 @@ function bindInput() {
     if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") keys.right = false;
   });
 
-  let touchStart = null;
   els.paper.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button")) return;
     els.paper.setPointerCapture(event.pointerId);
@@ -176,6 +190,11 @@ function bindInput() {
   });
 
   els.resetButton.addEventListener("click", reset);
+  window.addEventListener("blur", () => {
+    keys.left = false;
+    keys.right = false;
+    touchStart = null;
+  });
 }
 
 function setTouchDirection(clientX) {
@@ -277,24 +296,29 @@ function detectCrossings(before, after, input, now) {
   }
 }
 
+function atTrigger(name, row, col) {
+  const trigger = CONFIG.triggers[name];
+  return trigger.row === row && trigger.cols.includes(col);
+}
+
 function triggerAt(row, col, now) {
   const key = `${row}:${col}`;
   if (state.lastCrossed === key) return;
   state.lastCrossed = key;
 
-  if (row === 0 && col === 5 && !state.flags.seaPreview) {
+  if (atTrigger("seaPreview", row, col) && !state.flags.seaPreview) {
     state.flags.seaPreview = true;
     hitChars(0, [5, 6]);
     els.seaLine.classList.add("visible");
   }
 
-  if (row === 0 && (col === 10 || col === 11) && !state.flags.moonEcho) {
+  if (atTrigger("moonEcho", row, col) && !state.flags.moonEcho) {
     state.flags.moonEcho = true;
     hitChars(0, [10, 11]);
     pulseMoon("这一轮，刚才撞下来过", 2600);
   }
 
-  if (row === 0 && (col === 13 || col === 14) && !state.flags.tideAwake) {
+  if (atTrigger("tideAwake", row, col) && !state.flags.tideAwake) {
     state.flags.tideAwake = true;
     hitChars(0, [13, 14]);
     els.poem.classList.add("tide");
@@ -302,25 +326,25 @@ function triggerAt(row, col, now) {
     setHint("潮生了。", 1600);
   }
 
-  if (row === 1 && (col === 2 || col === 3) && !state.flags.wavePush) {
+  if (atTrigger("wavePush", row, col) && !state.flags.wavePush) {
     state.flags.wavePush = true;
     hitChars(1, [2, 3]);
     state.pushUntil = now + 1000;
   }
 
-  if (row === 1 && (col === 4 || col === 5 || col === 6) && !state.flags.wideBoost) {
+  if (atTrigger("wideBoost", row, col) && !state.flags.wideBoost) {
     state.flags.wideBoost = true;
     hitChars(1, [4, 5, 6]);
     state.speedBoostUntil = now + 1200;
   }
 
-  if (row === 1 && (col === 13 || col === 14) && !state.flags.moonBright) {
+  if (atTrigger("moonBright", row, col) && !state.flags.moonBright) {
     state.flags.moonBright = true;
     hitChars(1, [13, 14]);
     pulseMoon("回到海上。", 2400);
   }
 
-  if (row === 0 && col === 8 && state.flags.moonBright && !state.flags.seaFinale) {
+  if (atTrigger("seaFinale", row, col) && state.flags.moonBright && !state.flags.seaFinale) {
     startSeaFinale();
   }
 }
@@ -351,14 +375,14 @@ function createSeaGlyphBurst() {
   offsets.forEach((offset, index) => {
     const span = document.createElement("span");
     span.className = "sea-char";
-    span.textContent = isGap(index) ? "" : "海";
+    span.textContent = "海";
     span.style.left = `${CONFIG.gridX + 8 * CONFIG.char + offset.x}px`;
     span.style.top = `${CONFIG.gridY + offset.y}px`;
     span.style.opacity = "0.68";
     span.style.transform = `rotate(${offset.r}deg) scale(${1 - index * 0.05})`;
     els.paper.appendChild(span);
     state.seaGlyphs.push(span);
-    requestAnimationFrame(() => {
+    roundTasks.frame(() => {
       span.style.transition = "transform 1900ms ease, opacity 1900ms ease, color 1200ms ease";
       span.style.opacity = "0";
       span.style.color = "#176b9b";
@@ -369,24 +393,6 @@ function createSeaGlyphBurst() {
 
 function clearGeneratedSea() {
   for (const span of state?.seaGlyphs || []) span.remove();
-}
-
-function isGap(index) {
-  return false;
-}
-
-function seaColorFor(index) {
-  if (index < 8) return "#20201e";
-  if (index >= 24) return "#176b9b";
-  const t = (index - 8) / 16;
-  const from = [32, 32, 30];
-  const to = [23, 107, 155];
-  const rgb = from.map((v, i) => Math.round(v + (to[i] - v) * t));
-  return `rgb(${rgb.join(",")})`;
-}
-
-function waveOffset(index) {
-  return Math.sin(index * 0.9) * 6;
 }
 
 function countSteps(before, after) {
@@ -404,14 +410,14 @@ function hitChars(row, cols) {
     const char = els.poem.querySelector(`[data-row="${row}"][data-col="${col}"]`);
     if (!char) continue;
     char.classList.add("hit");
-    setTimeout(() => char.classList.remove("hit"), 420);
+    roundTasks.later(() => char.classList.remove("hit"), 420);
   }
 }
 
 function pulseMoon(text, duration) {
   els.moon.classList.add("glow");
   setHint(text, duration);
-  setTimeout(() => els.moon.classList.remove("glow"), 900);
+  roundTasks.later(() => els.moon.classList.remove("glow"), 900);
 }
 
 function setHint(text, duration = 2200) {
@@ -453,7 +459,7 @@ function render(now) {
     els.meta.style.opacity = String(Math.max(0, 1 - t * 1.8));
     els.meta.style.transform = `translateY(${-18 * t}px)`;
     els.poem.style.transform = `translateX(${-Math.min(210, state.seaCol * CONFIG.char * 0.58)}px)`;
-    updateGeneratedSea(now);
+    updateGeneratedSea();
   } else {
     els.poem.style.transform = "";
   }
@@ -461,7 +467,7 @@ function render(now) {
   drawFx(now);
 }
 
-function updateGeneratedSea(now) {
+function updateGeneratedSea() {
   for (let i = 0; i < state.seaGlyphs.length; i += 1) {
     const span = state.seaGlyphs[i];
     if (state.seaProgress > 0.65) span.style.opacity = "0";
@@ -556,24 +562,20 @@ boot();
 async function holdFor(direction, ms) {
   keys.left = direction === "left";
   keys.right = direction === "right";
-  await new Promise((resolve) => setTimeout(resolve, ms));
+  if (!await roundTasks.wait(ms)) return false;
   keys.left = false;
   keys.right = false;
+  return true;
 }
 
 async function runAutoplayDemo() {
-  await new Promise((resolve) => setTimeout(resolve, 700));
-  await holdFor("right", 5900);
-  await new Promise((resolve) => setTimeout(resolve, 400));
-  await holdFor("left", 3700);
-  await new Promise((resolve) => setTimeout(resolve, 400));
-  keys.right = true;
-  const jumpAt = [1550, 2700, 3380];
-  for (const ms of jumpAt) {
-    setTimeout(jump, ms);
-  }
-  await new Promise((resolve) => setTimeout(resolve, 4800));
-  keys.right = false;
+  if (!await roundTasks.wait(700)) return;
+  if (!await holdFor("right", 5900)) return;
+  if (!await roundTasks.wait(400)) return;
+  if (!await holdFor("left", 3700)) return;
+  if (!await roundTasks.wait(400)) return;
+  for (const ms of [1550, 2700, 3380]) roundTasks.later(jump, ms);
+  await holdFor("right", 4800);
 }
 
 if (new URLSearchParams(location.search).has("autoplay")) {
