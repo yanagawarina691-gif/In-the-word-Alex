@@ -52,3 +52,9 @@ docs/chunjiang-prd.md          第二关需求文档
 ```
 
 技术栈：Vite、原生 JavaScript、GSAP、Canvas 和 CSS。根目录的设计文档、素材记录和上游实现继续保留；素材来源见《视觉资源来源记录.md》。
+
+## 独立原型的状态与清理
+
+`public/prototypes/chunjiang/script.js` 在 `CONFIG.triggers` 中集中定义关卡触发位置。`round-tasks.js` 管理一局内的延迟效果、动画回调和自动演示等待；重置会取消旧任务并清空输入，防止上一局修改新一局。未使用的缺口与着色实验代码已移除。
+
+`npm test` 验证旧计时器、动画回调和自动演示的取消行为；该测试已加入 CI。
