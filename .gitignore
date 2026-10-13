@@ -6,3 +6,7 @@
 
 # Node
 node_modules/
+
+# 构建与本地系统文件
+dist/
+.DS_Store

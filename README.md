@@ -1,156 +1,54 @@
-# 字里行间
+# 字里行间 · 春江花月夜原型
 
-《字里行间》是一款发生在阅读页面中的短篇文字探索游戏。
+基于 [Edwardxlai/In-the-word](https://github.com/Edwardxlai/In-the-word) 的 fork。原项目将诗词阅读页面变成文字探索游戏。
 
-当前仓库实现了第一关《静夜思》的前端骨架，包括固定字符网格、移动、光、霜、子弹时间、撞月、下沉和第二关接缝。
+<img src="docs/preview.png" alt="春江花月夜独立原型" width="320">
 
-## 项目类型
+## 本 fork 的改动范围
 
-这是一个**纯前端项目**，当前没有后端、数据库或登录服务。
+- 保留上游根入口、游戏基础与视觉资源。
+- 新增独立的《春江花月夜》第二关原型页面及其需求文档。
+- 该独立原型尚未接入根入口的完整关卡流程，不能把上游基础功能都视为本 fork 的原创贡献。
 
-技术栈：
+## 运行
 
-- Vite
-- Vanilla JavaScript
-- GSAP
-- Canvas
-- 原生 CSS
-
-## 本地启动
-
-需要 Node.js 20 或更高版本。
-
-首次运行先安装依赖：
+需要 Node.js 22 或更高版本。
 
 ```bash
-npm install
-```
-
-然后启动开发服务器：
-
-```bash
+npm ci
 npm run dev
 ```
 
-终端会显示访问地址，通常是：
+根入口为 Vite 输出的地址；独立原型在同一地址下的 `/prototypes/chunjiang/`。例如：
 
-```text
-http://localhost:5173
-```
+- 上游主入口：<http://localhost:5173/>
+- 春江花月夜原型：<http://localhost:5173/prototypes/chunjiang/>
 
-所以和常见的前后端项目一样，日常开发直接使用：
+开发服务器使用其他端口时，相应替换 URL 中的端口。
 
-```bash
-npm run dev
-```
-
-如果依赖已经安装过，不需要重复执行 `npm install`。
-
-## 生产构建
+## 构建与预览
 
 ```bash
 npm run build
-```
-
-构建结果输出到：
-
-```text
-dist/
-```
-
-`dist` 中是可以部署到静态网站服务的纯前端文件，例如：
-
-- Vercel
-- Netlify
-- GitHub Pages
-- Nginx
-- 对象存储静态网站
-
-## 本地预览构建结果
-
-先执行：
-
-```bash
-npm run build
-```
-
-再执行：
-
-```bash
 npm run preview
 ```
 
-## 操作方式
+构建输出为 `dist/`，独立原型会保留在 `dist/prototypes/chunjiang/`。依赖与构建文件由本机生成，不提交到源码仓库。
 
-### 键盘
+## 操作与测试范围
 
-| 操作 | 按键 |
-|---|---|
-| 向左移动 | `←` 或 `A` |
-| 向右移动 | `→` 或 `D` |
-| 跳跃 | `↑`、`W` 或空格 |
-| 下沉 | 在“低”字上按住 `↓` 或 `S` 1 秒 |
-| 重置 | `R` |
+根入口的键盘与触屏控制见游戏提示，支持方向键 / A、D 移动，W / 空格跳跃，R 重置。
 
-### 触屏
+仓库保留上游的 `npm run smoke` 脚本，它依赖 Windows 本机 Chrome 和已运行的开发服务器，不是跨平台 CI。构建成功不等同于所有关卡已完成浏览器回归测试。
 
-- 按住屏幕左半边：向左移动
-- 按住屏幕右半边：向右移动
-- 向上滑动：跳跃
-- 在“低”字上下滑并保持 1 秒：下沉
-- 点击右上角循环箭头：重置
-
-## 第一关流程
-
-1. 向右经过“光”，触发月光。
-2. 继续经过“霜”，短暂冻结。
-3. 自动换到第二行，经过“举”进入子弹时间。
-4. 在子弹时间内跳跃，撞碎第一行并生成月亮。
-5. 走到“低”字。
-6. 按住下沉操作 1 秒，进入第二关接缝画面。
-
-## 可用命令
-
-| 命令 | 用途 |
-|---|---|
-| `npm run dev` | 启动开发服务器 |
-| `npm run build` | 生成生产构建 |
-| `npm run preview` | 本地预览生产构建 |
-| `npm run smoke` | 使用本机 Chrome 自动完成第一关测试 |
-
-`npm run smoke` 需要满足：
-
-- 开发服务器已经运行
-- 页面地址为 `http://127.0.0.1:5173`
-- Windows 安装了 Google Chrome
-
-## 项目结构
+## 目录与来源
 
 ```text
-.
-├─ index.html
-├─ package.json
-├─ DESIGN.md
-├─ README.md
-├─ 字里行间_产品需求文档_PRD.md
-├─ src/
-│  ├─ main.js          # 游戏控制器、状态机和机关演出
-│  ├─ input.js         # 键盘与触屏输入意图
-│  ├─ level-one.js     # 第一关文本、坐标和配置
-│  └─ styles.css       # 固定画布和视觉样式
-└─ scripts/
-   └─ smoke.mjs        # 自动通关测试
+src/                           上游关卡与游戏代码
+public/prototypes/chunjiang/    本 fork 的独立第二关页面
+public/assets/                 游戏运行素材
+scripts/                       上游冒烟测试脚本
+docs/chunjiang-prd.md          第二关需求文档
 ```
 
-## 当前范围
-
-已实现第一关和进入第二关的视觉接缝。
-
-尚未实现：
-
-- 第二关完整玩法
-- 海水变蓝终章
-- 声音资源
-- 分享截图
-- 正式字体子集
-
+技术栈：Vite、原生 JavaScript、GSAP、Canvas 和 CSS。根目录的设计文档、素材记录和上游实现继续保留；素材来源见《视觉资源来源记录.md》。
